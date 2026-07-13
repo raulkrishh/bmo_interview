@@ -277,3 +277,11 @@ curl -X POST http://localhost:8000/api/tasks \
 - SQLite instead of the JSON file once concurrent writes matter.
 - Pagination on `/api/tasks` once history grows large.
 - Deep-linkable `/tasks/:id` route in the frontend.
+
+## Video Flow
+
+
+https://github.com/user-attachments/assets/8ebbb3c5-bb5e-47c1-af1e-ac6e59f34690
+
+
+
