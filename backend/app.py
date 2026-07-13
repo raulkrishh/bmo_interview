@@ -1,7 +1,7 @@
 import os
 from typing import List
 
-from fastapi import FastAPI, HTTPException
+from fastapi import Depends, FastAPI, Header, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 
 from agent.controller import AgentController
@@ -27,6 +27,19 @@ app.add_middleware(
 agent = AgentController()
 store = JsonTaskStore(os.environ.get("TASK_STORE_PATH", "data/tasks.json"))
 
+_VALID_ROLES = {"admin", "user"}
+
+
+def get_current_role(x_role: str = Header(default="user")) -> str:
+    if x_role not in _VALID_ROLES:
+        raise HTTPException(status_code=403, detail=f"Invalid role '{x_role}'. Must be one of: {sorted(_VALID_ROLES)}")
+    return x_role
+
+
+def require_admin(role: str = Depends(get_current_role)):
+    if role != "admin":
+        raise HTTPException(status_code=403, detail="Admin role required")
+
 
 @app.get("/api/health")
 def health():
@@ -35,22 +48,21 @@ def health():
 
 @app.get("/api/tools")
 def list_tools():
-    """Lets the frontend (or a curious reviewer) see what the agent can do."""
     return [{"name": t.name, "description": t.description} for t in agent.tools]
 
 
 @app.post("/api/tasks", response_model=TaskRecord)
-def submit_task(payload: TaskRequest):
+def submit_task(payload: TaskRequest, _role: str = Depends(get_current_role)):
     record = agent.run(payload.task)
     return store.add(record)
 
 
-@app.get("/api/tasks", response_model=List[TaskRecord])
+@app.get("/api/tasks", response_model=List[TaskRecord], dependencies=[Depends(require_admin)])
 def get_history():
     return store.list_all()
 
 
-@app.get("/api/tasks/{task_id}", response_model=TaskRecord)
+@app.get("/api/tasks/{task_id}", response_model=TaskRecord, dependencies=[Depends(require_admin)])
 def get_task(task_id: str):
     record = store.get(task_id)
     if record is None:

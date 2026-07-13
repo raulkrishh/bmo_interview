@@ -8,16 +8,22 @@ async function handleResponse(response) {
   return response.json()
 }
 
-export async function submitTask(task) {
+function roleHeaders(role) {
+  return { 'Content-Type': 'application/json', 'x-role': role }
+}
+
+export async function submitTask(task, role) {
   const response = await fetch(`${API_BASE}/api/tasks`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: roleHeaders(role),
     body: JSON.stringify({ task }),
   })
   return handleResponse(response)
 }
 
-export async function fetchHistory() {
-  const response = await fetch(`${API_BASE}/api/tasks`)
+export async function fetchHistory(role) {
+  const response = await fetch(`${API_BASE}/api/tasks`, {
+    headers: { 'x-role': role },
+  })
   return handleResponse(response)
 }

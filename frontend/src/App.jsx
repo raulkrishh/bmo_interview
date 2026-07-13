@@ -9,14 +9,16 @@ export default function App() {
   const [history, setHistory] = useState([])
   const [isLoading, setIsLoading] = useState(false)
   const [errorMessage, setErrorMessage] = useState(null)
+  const [role, setRole] = useState('user')
 
   useEffect(() => {
-    loadHistory()
-  }, [])
+    if (role === 'admin') loadHistory()
+    else setHistory([])
+  }, [role])
 
   async function loadHistory() {
     try {
-      const data = await fetchHistory()
+      const data = await fetchHistory(role)
       setHistory(data)
     } catch (err) {
       setErrorMessage(err.message)
@@ -27,9 +29,9 @@ export default function App() {
     setIsLoading(true)
     setErrorMessage(null)
     try {
-      const record = await submitTask(task)
+      const record = await submitTask(task, role)
       setCurrentResult(record)
-      await loadHistory()
+      if (role === 'admin') await loadHistory()
     } catch (err) {
       setErrorMessage(err.message)
     } finally {
@@ -42,6 +44,18 @@ export default function App() {
       <header>
         <h1>Agentic Task Runner</h1>
         <p className="subtitle">Enter a task. The agent picks a tool, runs it, and shows its reasoning.</p>
+        <div className="role-switcher">
+          <span className="role-label">Role:</span>
+          {['user', 'admin'].map(r => (
+            <button
+              key={r}
+              className={`role-btn ${role === r ? 'active' : ''}`}
+              onClick={() => setRole(r)}
+            >
+              {r}
+            </button>
+          ))}
+        </div>
       </header>
 
       <TaskForm onSubmit={handleSubmit} isLoading={isLoading} />
@@ -49,10 +63,16 @@ export default function App() {
 
       <ResultPanel record={currentResult} />
 
-      <section className="history-section">
-        <h2>History</h2>
-        <HistoryList history={history} />
-      </section>
+      {role === 'admin' ? (
+        <section className="history-section">
+          <h2>History</h2>
+          <HistoryList history={history} />
+        </section>
+      ) : (
+        <section className="history-section">
+          <p className="role-notice">History is only visible to admins.</p>
+        </section>
+      )}
     </div>
   )
 }
