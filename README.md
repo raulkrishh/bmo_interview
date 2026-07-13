@@ -54,7 +54,7 @@ source venv/bin/activate
 python -m pytest tests/ -v
 ```
 
-34 tests covering all three tools, agent selection and chaining logic, and the API layer.
+37 tests covering all three tools, agent selection and chaining logic, RBAC, and the API layer.
 
 ---
 
@@ -172,21 +172,53 @@ outputs are visible in the trace but not repeated in the answer.
 
 ---
 
+## RBAC
+
+All API requests require an `x-role` header with one of two values:
+
+| Role | Can do |
+|---|---|
+| `user` | Submit tasks (`POST /api/tasks`) |
+| `admin` | Submit tasks + view history (`GET /api/tasks`, `GET /api/tasks/{id}`) |
+
+Requests with a missing or invalid role default to `user`. Requests to admin-only endpoints without the admin role return `403 Forbidden`.
+
+The frontend exposes a role switcher in the header — toggling to `user` hides the history panel; toggling to `admin` reveals it.
+
+**curl examples:**
+
+```bash
+# Submit a task as a user
+curl -X POST http://localhost:8000/api/tasks \
+  -H "Content-Type: application/json" \
+  -H "x-role: user" \
+  -d '{"task": "3 + 5"}'
+
+# Fetch history as admin
+curl http://localhost:8000/api/tasks -H "x-role: admin"
+
+# Fetch history as user — returns 403
+curl http://localhost:8000/api/tasks -H "x-role: user"
+```
+
+---
+
 ## API
 
-| Method | Path | Description |
-|---|---|---|
-| `POST` | `/api/tasks` | Submit a task; returns output + trace |
-| `GET` | `/api/tasks` | List task history, most recent first |
-| `GET` | `/api/tasks/{id}` | Fetch a single task record |
-| `GET` | `/api/tools` | List registered tools and their descriptions |
-| `GET` | `/api/health` | Health check |
+| Method | Path | Role required | Description |
+|---|---|---|---|
+| `POST` | `/api/tasks` | `user` or `admin` | Submit a task; returns output + trace |
+| `GET` | `/api/tasks` | `admin` only | List task history, most recent first |
+| `GET` | `/api/tasks/{id}` | `admin` only | Fetch a single task record |
+| `GET` | `/api/tools` | any | List registered tools and their descriptions |
+| `GET` | `/api/health` | any | Health check |
 
 **Example request:**
 
 ```bash
 curl -X POST http://localhost:8000/api/tasks \
   -H "Content-Type: application/json" \
+  -H "x-role: user" \
   -d '{"task": "weather in Chicago then uppercase"}'
 ```
 
@@ -233,7 +265,9 @@ curl -X POST http://localhost:8000/api/tasks \
   overhead for a project this size.
 - **CORS is wide open (`*`)** since this runs locally; a real deployment would restrict to the
   actual frontend origin.
-- **No auth** — out of scope per the requirements.
+- **RBAC uses a header claim (`x-role`) rather than signed tokens.** This is intentionally
+  simple — it demonstrates the role-gating pattern without requiring a full auth server. A
+  production version would verify a signed JWT and extract the role from its claims.
 
 ## What I'd Improve With More Time
 
